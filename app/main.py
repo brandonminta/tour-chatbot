@@ -101,42 +101,50 @@ def chat(req: ChatRequest, db=Depends(get_db_session)):
     conv_id = req.conversation_id
     history = conversations.setdefault(conv_id, [])
 
-    # append user message
+    # Añadir mensaje del usuario al historial
     history.append({"role": "user", "content": req.message})
 
-    # get agent response (may contain function_call)
+    # Obtener respuesta del agente
     raw_response = run_tourbot(history)
     output = raw_response.output[0]
-    
-    # --- Si es llamada a función ---
+
+    # --- 1. SI ES UNA LLAMADA A FUNCIÓN ---
     if output.type == "function_call":
         fn_name = output.name
         args = output.arguments
-    
+
         if fn_name == "register_user":
             result = execute_register_user(db, args)
+
             reply = (
-                "¡Listo! Tu registro ha sido procesado. "
-                "En breve recibirás una confirmación por correo 😊"
+                "¡Listo! Tu registro ha sido procesado 😊 "
+                "En breve recibirás una confirmación por correo."
             )
+
+            # Guardar respuesta del bot
+            history.append({"role": "assistant", "content": reply})
+
             return ChatResponse(
-                conversation_id=conversation.id,
+                conversation_id=conv_id,
                 reply=reply,
                 stage="completed",
                 registration_completed=True,
                 wait_listed=result.get("wait_listed", False),
                 suggested_tours=[],
             )
-    
-    # --- Si es respuesta de texto ---
+
+    # --- 2. SI ES RESPUESTA DE TEXTO ---
     if output.type == "message":
         reply = output.content[0].text
+
+        # Guardar respuesta del bot
+        history.append({"role": "assistant", "content": reply})
+
         return ChatResponse(
-            conversation_id=conversation.id,
+            conversation_id=conv_id,
             reply=reply,
             stage="chat",
             registration_completed=False,
             wait_listed=False,
             suggested_tours=[],
         )
-    
