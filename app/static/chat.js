@@ -64,7 +64,7 @@ const initializeChat = async () => {
         addMessage(data.reply, 'bot');
         setSuggestions(data.suggested_tours);
     } catch (error) {
-        addMessage('No pude conectarme con SAM en este momento. Intenta nuevamente. 🙏', 'bot');
+        addMessage('No pude conectarme con SAM en este momento. Intenta nuevamente.', 'bot');
     }
 };
 
@@ -78,51 +78,25 @@ const sendMessage = async () => {
     isSending = true;
     sendBtn.disabled = true;
 
-const setSuggestions = (items = []) => {
-    tourSuggestions.innerHTML = '';
-    if (!items.length) {
-        const empty = document.createElement('p');
-        empty.className = 'chat-subtitle';
-        empty.textContent = 'SAM te informará apenas se abran nuevos cupos.';
-        tourSuggestions.appendChild(empty);
-        return;
-    }
-
-    items.forEach((item) => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'tour-chip';
-        chip.textContent = item;
-        chip.addEventListener('click', () => {
-            input.value = item.split('·')[0].replace(/^[0-9]+\.\s*/, '').trim();
-            input.focus();
-        });
-        tourSuggestions.appendChild(chip);
-    });
-};
-
-const initializeChat = async () => {
     try {
         const res = await fetch('/chat', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 message: text,
                 conversation_id: conversationId,
             }),
         });
 
-        if (!res.ok) {
-            throw new Error('Error al contactar el servidor');
-        }
+        if (!res.ok) throw new Error('Error al contactar el servidor');
 
         const data = await res.json();
         conversationId = data.conversation_id;
         sessionStorage.setItem('sam-conversation-id', conversationId);
+
         addMessage(data.reply, 'bot');
         setSuggestions(data.suggested_tours);
+
     } catch (error) {
         addMessage('Hubo un problema de conexión. Por favor intenta nuevamente.', 'bot');
     } finally {
@@ -147,7 +121,7 @@ input.addEventListener('keydown', (event) => {
 
 window.addEventListener('load', () => {
     if (!conversationId) {
-        const randomId = typeof crypto !== 'undefined' && crypto.randomUUID
+        const randomId = crypto.randomUUID
             ? crypto.randomUUID()
             : `${Date.now()}-${Math.random()}`;
         conversationId = randomId;
