@@ -1,25 +1,30 @@
-"""Optional helper to rewrite responses with OpenAI."""
-from __future__ import annotations
+# app/openai_client.py
 
+"""
+OpenAI client singleton for all chatbot components.
+Provides:
+- _client  → shared OpenAI client
+- polish_reply() → optional text rewriting
+"""
+
+from __future__ import annotations
 import os
 from typing import Optional
-
 from dotenv import load_dotenv
-
-try:  # Optional import to avoid breaking when key is missing
-    from openai import OpenAI
-except Exception:  # pragma: no cover - fallback when SDK unavailable
-    OpenAI = None  # type: ignore
+from openai import OpenAI
 
 load_dotenv()
 
+# ------------------------------------------
+# Create a global OpenAI client
+# ------------------------------------------
+
 _API_KEY = os.getenv("OPENAI_API_KEY")
-_client: Optional[OpenAI] = None
-if _API_KEY and OpenAI is not None:
-    try:
-        _client = OpenAI(api_key=_API_KEY)
-    except Exception:
-        _client = None
+_client: OpenAI = OpenAI(api_key=_API_KEY) if _API_KEY else None
+
+# ------------------------------------------
+# Polisher prompt
+# ------------------------------------------
 
 SYSTEM_PROMPT = """
 Eres SAM, el asistente virtual de Admisiones del Montebello.
@@ -28,10 +33,13 @@ profesional e invitando a las familias a registrarse en el Tour de Admisiones.
 No inventes datos nuevos; solo mejora la redacción dada.
 """
 
+# ------------------------------------------
+# Rewrite helper
+# ------------------------------------------
 
 def polish_reply(draft: str) -> str:
-    """Return an enhanced reply using OpenAI when available."""
-    if not draft.strip():
+    """Rewrite a message in SAM’s tone."""
+    if not draft.strip() or not _client:
         return draft
 
     try:
@@ -41,12 +49,15 @@ def polish_reply(draft: str) -> str:
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {
                     "role": "user",
-                    "content": "Reescribe el siguiente mensaje manteniendo la intención original:\n" + draft,
+                    "content": (
+                        "Reescribe el siguiente mensaje manteniendo la intención original:\n" + draft
+                    ),
                 },
             ],
             temperature=0.6,
             max_output_tokens=350,
         )
         return completion.output_text or draft
+
     except Exception:
         return draft
