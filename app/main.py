@@ -93,40 +93,62 @@ def init_chat(db=Depends(get_db_session)):
 # Recibir mensaje del usuario
 # ------------------------------------------
 
+from .functions import execute_register_user
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest, db=Depends(get_db_session)):
 
-    if not req.message.strip():
-        raise HTTPException(status_code=400, detail="El mensaje no puede estar vacío.")
-
-    # Crear conversa si no existe
     conv_id = req.conversation_id
-    if conv_id not in conversations:
-        conversations[conv_id] = []
+    history = conversations.setdefault(conv_id, [])
 
-    history = conversations[conv_id]
-
-    # Agregar mensaje del usuario al historial
+    # append user message
     history.append({"role": "user", "content": req.message})
 
-    # Obtener respuesta del agente TourBot
-    bot_reply = run_tourbot(history)
+    # get agent response (may contain function_call)
+    raw_response = run_tourbot(history)
+    output = raw_response.output[0]
 
-    # Guardar respuesta en historial
-    history.append({"role": "assistant", "content": bot_reply})
+    # CASE 1: Bot wants to call a function
+    if output.type == "function_call":
+        fn = output.function
+        args = fn.arguments
 
-    # Obtener tours sugeridos (solo informativo)
-    tours = list_active_tours(db)
-    suggestions = [
-        f"{i+1}. {t.date.strftime('%d/%m/%Y')} · Cupo inmediato · grupos de {t.capacity} familias"
-        for i, t in enumerate(tours)
-    ]
+        # run registration
+        result = execute_register_user(db, args)
+
+        if result["status"] == "success":
+            reply = (
+                f"¡Listo! Te registré para el tour del {result['tour_date']} 😊\n"
+                "En breve recibirás un correo de confirmación.\n"
+                "¿Hay algo más en lo que pueda ayudarte?"
+            )
+            reg_done = True
+        else:
+            reply = "Hubo un problema registrando tu visita. ¿Podemos intentar de nuevo?"
+            reg_done = False
+
+        # save assistant message
+        history.append({"role": "assistant", "content": reply})
+
+        return ChatResponse(
+            conversation_id=conv_id,
+            reply=reply,
+            stage="chat",
+            registration_completed=reg_done,
+            wait_listed=result.get("wait_listed", False),
+            suggested_tours=[],
+        )
+
+    # CASE 2: Normal text reply from model
+    reply_text = output.content[0].text
+    history.append({"role": "assistant", "content": reply_text})
 
     return ChatResponse(
         conversation_id=conv_id,
-        reply=bot_reply,
-        stage="chat",               # No usamos etapas
+        reply=reply_text,
+        stage="chat",
         registration_completed=False,
         wait_listed=False,
-        suggested_tours=suggestions
+        suggested_tours=[],
     )
+
