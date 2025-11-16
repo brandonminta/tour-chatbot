@@ -113,10 +113,10 @@ def run_tourbot(history: List[Dict[str, str]]):
 
     response = _client.responses.create(
         model="gpt-4o-mini",
-        input=msgs,                   
+        messages=msgs,                   
         tools=[REGISTER_USER_FUNCTION],
         tool_choice="auto",
-        max_output_tokens=350,
+        max_output_tokens=200,
         temperature=0.6,
     )
     usage = response.usage
@@ -124,6 +124,7 @@ def run_tourbot(history: List[Dict[str, str]]):
     print(f"  Input tokens:   {usage.input_tokens}")
     print(f"  Output tokens:  {usage.output_tokens}")
     print(f"  Total tokens:   {usage.total_tokens}")
+    print(f" Cache : {usage.prompt_tokens_details.cached_tokens}")
     print("=" * 40)
 
     return response
