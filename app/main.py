@@ -41,6 +41,7 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 INDEX_FILE = Path("app/templates/index.html")
+THANK_YOU_FILE = Path("app/templates/thank_you.html")
 
 
 @app.on_event("startup")
@@ -51,6 +52,11 @@ def startup_event():
 @app.get("/", response_class=HTMLResponse)
 def home():
     return HTMLResponse(INDEX_FILE.read_text(encoding="utf-8"))
+
+
+@app.get("/gracias", response_class=HTMLResponse)
+def thank_you():
+    return HTMLResponse(THANK_YOU_FILE.read_text(encoding="utf-8"))
 
 
 # ------------------------------------------

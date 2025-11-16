@@ -97,6 +97,12 @@ const sendMessage = async () => {
         addMessage(data.reply, 'bot');
         setSuggestions(data.suggested_tours);
 
+        if (data.registration_completed) {
+            setTimeout(() => {
+                window.location.href = '/gracias';
+            }, 700);
+        }
+
     } catch (error) {
         addMessage('Hubo un problema de conexión. Por favor intenta nuevamente.', 'bot');
     } finally {
