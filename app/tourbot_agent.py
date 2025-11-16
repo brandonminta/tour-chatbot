@@ -119,5 +119,11 @@ def run_tourbot(history: List[Dict[str, str]]):
         max_output_tokens=350,
         temperature=0.6,
     )
+    usage = response.usage
+    print("\n[run_tourbot] TOKENS:")
+    print(f"  Input tokens:   {usage.input_tokens}")
+    print(f"  Output tokens:  {usage.output_tokens}")
+    print(f"  Total tokens:   {usage.total_tokens}")
+    print("=" * 40)
 
     return response
