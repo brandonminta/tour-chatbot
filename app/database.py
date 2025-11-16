@@ -9,6 +9,19 @@ from typing import Generator, List, Optional, Tuple
 
 DATABASE_PATH = Path("tour.db")
 
+ORDINAL_KEYWORDS = {
+    "primera": 1,
+    "primer": 1,
+    "segunda": 2,
+    "segundo": 2,
+    "tercera": 3,
+    "tercer": 3,
+    "cuarta": 4,
+    "cuarto": 4,
+    "quinta": 5,
+    "quinto": 5,
+}
+
 
 @dataclass
 class TourDate:
@@ -120,6 +133,12 @@ def find_tour_by_input(conn: sqlite3.Connection, user_choice: str) -> Optional[T
         if 0 <= idx < len(tours):
             return tours[idx]
 
+    for keyword, index in ORDINAL_KEYWORDS.items():
+        if keyword in user_choice:
+            idx = index - 1
+            if 0 <= idx < len(tours):
+                return tours[idx]
+
     for tour in tours:
         options = [
             tour.date.strftime("%d/%m/%Y"),
@@ -154,17 +173,23 @@ def create_registration(
     phone: str,
     grade_interest: str,
     tour_date: TourDate,
+    force_wait_listed: bool = False,
 ) -> Tuple[Registration, bool]:
-    wait_listed = tour_date.available_slots <= 0
-    new_registered = tour_date.registered
+    """Persist a registration and optionally force the wait-list flag.
 
-    if not wait_listed:
-        new_registered += 1
-        status = "full" if new_registered >= tour_date.capacity else tour_date.status
-        conn.execute(
-            "UPDATE tour_dates SET registered = ?, status = ? WHERE id = ?",
-            (new_registered, status, tour_date.id),
-        )
+    Even cuando los tours tienen cupos, ciertos grados se manejan con lista
+    prioritaria. `force_wait_listed` permite reflejar ese estado sin depender
+    únicamente de la capacidad del tour.
+    """
+
+    wait_listed = force_wait_listed
+    new_registered = tour_date.registered + 1
+
+    status = tour_date.status
+    conn.execute(
+        "UPDATE tour_dates SET registered = ?, status = ? WHERE id = ?",
+        (new_registered, status, tour_date.id),
+    )
     registration_cursor = conn.execute(
         """
         INSERT INTO registrations(first_name, last_name, email, phone, grade_interest, tour_date_id, wait_listed)

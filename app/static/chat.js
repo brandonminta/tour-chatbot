@@ -35,11 +35,17 @@ const setSuggestions = (items = []) => {
         return;
     }
 
+    const hint = document.createElement('p');
+    hint.className = 'chat-subtitle';
+    hint.textContent = 'Elige una fecha de la lista (escribe el número o haz clic para copiarla).';
+    tourSuggestions.appendChild(hint);
+
     items.forEach((item) => {
         const chip = document.createElement('button');
         chip.type = 'button';
         chip.className = 'tour-chip';
         chip.textContent = item;
+        chip.title = 'Haz clic para copiar la fecha y luego envíala con Enter';
         chip.addEventListener('click', () => {
             input.value = item.split('·')[0].replace(/^[0-9]+\.\s*/, '').trim();
             input.focus();
@@ -72,6 +78,30 @@ const sendMessage = async () => {
     isSending = true;
     sendBtn.disabled = true;
 
+const setSuggestions = (items = []) => {
+    tourSuggestions.innerHTML = '';
+    if (!items.length) {
+        const empty = document.createElement('p');
+        empty.className = 'chat-subtitle';
+        empty.textContent = 'SAM te informará apenas se abran nuevos cupos.';
+        tourSuggestions.appendChild(empty);
+        return;
+    }
+
+    items.forEach((item) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'tour-chip';
+        chip.textContent = item;
+        chip.addEventListener('click', () => {
+            input.value = item.split('·')[0].replace(/^[0-9]+\.\s*/, '').trim();
+            input.focus();
+        });
+        tourSuggestions.appendChild(chip);
+    });
+};
+
+const initializeChat = async () => {
     try {
         const res = await fetch('/chat', {
             method: 'POST',
