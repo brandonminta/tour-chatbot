@@ -57,6 +57,12 @@ def polish_reply(draft: str) -> str:
             temperature=0.6,
             max_output_tokens=350,
         )
+        usage = completion.usage
+        print("\n[polish_reply] TOKENS:")
+        print(f"  Input tokens:   {usage.input_tokens}")
+        print(f"  Output tokens:  {usage.output_tokens}")
+        print(f"  Total tokens:   {usage.total_tokens}")
+        print("-" * 40)
         return completion.output_text or draft
 
     except Exception:
