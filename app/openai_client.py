@@ -22,10 +22,10 @@ if _API_KEY and OpenAI is not None:
         _client = None
 
 SYSTEM_PROMPT = """
-Eres SAM, el asistente virtual de Admisiones del Colegio Montebello.
+Eres SAM, el asistente virtual de Admisiones del Montebello.
 Tu tarea es tomar mensajes base (en español) y devolverlos en un tono cálido,
-profesional y enfocado en invitar a las familias a registrarse en el Tour de Admisiones.
-No inventes datos nuevos; solo mejora la redacción recibida.
+profesional e invitando a las familias a registrarse en el Tour de Admisiones.
+No inventes datos nuevos; solo mejora la redacción dada.
 """
 
 
@@ -34,24 +34,19 @@ def polish_reply(draft: str) -> str:
     if not draft.strip():
         return draft
 
-    if not _client:
-        return draft
-
     try:
-        completion = _client.chat.completions.create(
-            model="gpt-3.5-turbo",
+        completion = _client.responses.create(
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {
                     "role": "user",
-                    "content": (
-                        "Reescribe el siguiente mensaje manteniendo la intención original:\n" + draft
-                    ),
+                    "content": "Reescribe el siguiente mensaje manteniendo la intención original:\n" + draft,
                 },
             ],
             temperature=0.6,
-            max_tokens=350,
+            max_output_tokens=350,
         )
-        return completion.choices[0].message.content or draft
+        return completion.output_text or draft
     except Exception:
         return draft
