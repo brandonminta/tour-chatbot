@@ -1,93 +1,38 @@
 # app/tourbot_agent.py
 from __future__ import annotations
 from typing import List, Dict
-from openai import OpenAI
 from .openai_client import _client
+from .functions import REGISTER_USER_FUNCTION
 
-# ------------------------------------------------------------
-# SYSTEM PROMPT – personalidad del agente
-# ------------------------------------------------------------
 
 SYSTEM_PROMPT = """
-Eres SAM, el asistente virtual de Admisiones del Colegio Montebello.
+Eres SAM, asistente de Admisiones del Colegio Montebello.
 
-Tu misión es:
-- Conversar de manera cálida y humana.
-- Resolver dudas sobre tours, grados, cupos, transporte, uniforme, alimentación, etc.
-- Acompañar suavemente a las familias hasta el registro del Tour Informativo,
-  sin presionar, sin burocracia y sin sonar a chatbot rígido.
+Puedes conversar naturalmente y también llamar funciones cuando
+sea necesario registrar a un usuario.
 
-Estilo:
-- No uses lenguaje robótico.
-- No repitas las mismas preguntas.
-- No fuerces un orden estricto (el usuario puede dar datos en cualquier momento).
-- No inventes información del colegio.
-- Sé empático, educado, amable.
-- Mantén la conversación natural, como un asesor humano real.
-
-Objetivo:
-Recolectar de forma orgánica:
-- Nombre
-- Correo
-- Número celular
-- Grado(s) de interés
-
-Si el usuario da los datos, reconócelos suavemente.
-Si un dato está incompleto, pide aclaración con naturalidad, sin sonar estricto.
-
-Sobre cupos:
-- Si preguntan, responde de forma general: 
-  “Tenemos fechas con cupos inmediatos” o “Hay disponibilidad limitada”.
-- Nunca inventes números exactos.
-
-Sobre información general:
-Responde de manera breve y cálida sobre:
-- Transporte escolar
-- Alimentación Hanaska
-- Uniformes
-- Instalaciones
-- Proceso de admisión
-- Fechas de tours
-
-Registro:
-Cuando detectes que el usuario quiere registrarse (de forma explícita o implícita),
-pide confirmar los datos si falta algo, con suavidad.
-No digas “etapa”, “fase”, “step”.
-Hazlo como un humano que conversa.
-
-NO registres tú mismo; solo conversa y acompáñalos.
-El backend manejará el registro más adelante.
+Reglas:
+- Cuando tengas: nombre, email, teléfono, grado y tour_date_id,
+  y el usuario confirme que quiere registrarse,
+  debes llamar automáticamente a la función register_user().
+- No inventes datos.
+- Si falta información, pídele al usuario suavemente que la confirme.
 """
 
-
-# ------------------------------------------------------------
-# Construcción del historial para enviarlo al modelo
-# ------------------------------------------------------------
-
-def build_messages(history: List[Dict[str, str]]) -> List[Dict[str, str]]:
-    """
-    history: lista de dicts {role: "user"/"assistant", content: "..."}
-    """
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    messages.extend(history)
-    return messages
+def build_messages(history: List[Dict[str, str]]):
+    return [{"role": "system", "content": SYSTEM_PROMPT}] + history
 
 
-# ------------------------------------------------------------
-# Ejecución del agente
-# ------------------------------------------------------------
-
-def run_tourbot(history: List[Dict[str, str]]) -> str:
-    """
-    Toma el historial completo y devuelve la respuesta del bot.
-    """
-    messages = build_messages(history)
+def run_tourbot(history: List[Dict[str, str]]):
+    msgs = build_messages(history)
 
     response = _client.responses.create(
         model="gpt-4.1-mini",
-        messages=messages,
+        messages=msgs,
+        tools=[{"type": "function", "function": REGISTER_USER_FUNCTION}],
+        tool_choice="auto",
         temperature=0.6,
-        max_output_tokens=300,
+        max_output_tokens=350,
     )
 
-    return response.output_text
+    return response
