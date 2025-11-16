@@ -124,7 +124,6 @@ def run_tourbot(history: List[Dict[str, str]]):
     print(f"  Input tokens:   {usage.input_tokens}")
     print(f"  Output tokens:  {usage.output_tokens}")
     print(f"  Total tokens:   {usage.total_tokens}")
-    print(f" Cache : {usage.prompt_tokens_details.cached_tokens}")
     print("=" * 40)
 
     return response
