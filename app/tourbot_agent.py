@@ -113,7 +113,7 @@ def run_tourbot(history: List[Dict[str, str]]):
 
     response = _client.responses.create(
         model="gpt-4o-mini",
-        messages=msgs,                   
+        input=msgs,                   
         tools=[REGISTER_USER_FUNCTION],
         tool_choice="auto",
         max_output_tokens=200,
