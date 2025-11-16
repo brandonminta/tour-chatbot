@@ -2,20 +2,44 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8" />
-    <title>Montebello Tour Assistant</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SAM · Montebello Academy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
-    <h1>Montebello Tour Assistant</h1>
-    <p>Welcome! I can help you request a tour and answer questions about the school.</p>
-
-    <div id="chat-box"></div>
-
-    <div id="input-area">
-        <input id="message" type="text" placeholder="Escribe tu mensaje aquí..." />
-        <button onclick="sendMessage()">Enviar</button>
+    <div class="page-shell">
+        <header class="hero">
+            <div>
+                <p class="eyebrow">Colegio Montebello Academy · Quito</p>
+                <h1>Tour de Admisiones con SAM</h1>
+                <p>Agenda tu visita guiada, conoce horarios, cupos, transporte y todo lo que necesitas para aplicar.</p>
+            </div>
+            <img src="https://cdn.jsdelivr.net/gh/tabler/tabler-icons/icons/school.svg" alt="Montebello" />
+        </header>
+        <main class="chat-card">
+            <div class="chat-header">
+                <div class="avatar">SAM</div>
+                <div>
+                    <p class="chat-title">Asistente de Admisiones</p>
+                    <p class="chat-subtitle">Responde en minutos · Enfoque 100% en tu registro al Tour</p>
+                </div>
+            </div>
+            <div id="chat-box" class="chat-box" aria-live="polite"></div>
+            <div id="typing-indicator" class="typing hidden">SAM está escribiendo…</div>
+            <section>
+                <p class="section-label">Próximas fechas</p>
+                <div id="tour-suggestions" class="tour-suggestions"></div>
+            </section>
+            <form id="chat-form" class="input-bar" autocomplete="off">
+                <textarea id="message" placeholder="Escribe tu mensaje y presiona Enter para enviar" rows="2"></textarea>
+                <button type="submit" id="send-btn">Enviar</button>
+            </form>
+            <p class="disclaimer">Al compartir tus datos autorizas al colegio a contactarte para coordinar el Tour de Admisiones.</p>
+        </main>
     </div>
-
-    <script src="/static/chat.js"></script>
+    <script src="/static/chat.js" defer></script>
 </body>
 </html>

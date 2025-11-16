@@ -1,47 +1,57 @@
+"""Optional helper to rewrite responses with OpenAI."""
+from __future__ import annotations
+
 import os
+from typing import Optional
+
 from dotenv import load_dotenv
-from openai import OpenAI
+
+try:  # Optional import to avoid breaking when key is missing
+    from openai import OpenAI
+except Exception:  # pragma: no cover - fallback when SDK unavailable
+    OpenAI = None  # type: ignore
 
 load_dotenv()
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+_API_KEY = os.getenv("OPENAI_API_KEY")
+_client: Optional[OpenAI] = None
+if _API_KEY and OpenAI is not None:
+    try:
+        _client = OpenAI(api_key=_API_KEY)
+    except Exception:
+        _client = None
 
 SYSTEM_PROMPT = """
-You are the admissions assistant of Colegio Montebello (Quito, Ecuador).
-
-Your goal:
-- Welcome and guide parents who are interested in the school.
-- Ask a few polite questions to understand their needs:
-  - Parent name
-  - Student name
-  - Student age or grade they are applying for
-  - Contact phone
-  - Contact email
-  - Preferred day/time to visit the school
-- Explain briefly how school tours work at Montebello (in general terms).
-- Once you have enough information, clearly confirm that a tour request has been registered,
-  and reassure them that the admissions team will follow up.
-
-Important:
-- Be warm, professional, short and clear.
-- If some key information is missing (like phone or grade), politely ask for it.
-- Do NOT invent exact prices or legal promises. If asked about costs, speak generally and say that
-  exact details are provided by the admissions team.
-- If the user speaks Spanish, answer in Spanish. If they start in English, answer in English.
+Eres SAM, el asistente virtual de Admisiones del Colegio Montebello.
+Tu tarea es tomar mensajes base (en español) y devolverlos en un tono cálido,
+profesional y enfocado en invitar a las familias a registrarse en el Tour de Admisiones.
+No inventes datos nuevos; solo mejora la redacción recibida.
 """
 
 
-def chat_with_openai(user_message: str) -> str:
-    """
-    Simple one-turn chat: we send the user's latest message plus the system prompt.
-    This is enough for a prototype.
-    """
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",  # or whichever model you prefer/are allowed to use
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_message},
-        ],
-    )
+def polish_reply(draft: str) -> str:
+    """Return an enhanced reply using OpenAI when available."""
+    if not draft.strip():
+        return draft
 
-    return response.choices[0].message.content
+    if not _client:
+        return draft
+
+    try:
+        completion = _client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": (
+                        "Reescribe el siguiente mensaje manteniendo la intención original:\n" + draft
+                    ),
+                },
+            ],
+            temperature=0.6,
+            max_tokens=350,
+        )
+        return completion.choices[0].message.content or draft
+    except Exception:
+        return draft
