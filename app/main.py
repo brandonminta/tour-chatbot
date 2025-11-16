@@ -107,48 +107,36 @@ def chat(req: ChatRequest, db=Depends(get_db_session)):
     # get agent response (may contain function_call)
     raw_response = run_tourbot(history)
     output = raw_response.output[0]
-
-    # CASE 1: Bot wants to call a function
+    
+    # --- Si es llamada a función ---
     if output.type == "function_call":
-        fn = output.function
-        args = fn.arguments
-
-        # run registration
-        result = execute_register_user(db, args)
-
-        if result["status"] == "success":
+        fn_name = output.name
+        args = output.arguments
+    
+        if fn_name == "register_user":
+            result = execute_register_user(db, args)
             reply = (
-                f"¡Listo! Te registré para el tour del {result['tour_date']} 😊\n"
-                "En breve recibirás un correo de confirmación.\n"
-                "¿Hay algo más en lo que pueda ayudarte?"
+                "¡Listo! Tu registro ha sido procesado. "
+                "En breve recibirás una confirmación por correo 😊"
             )
-            reg_done = True
-        else:
-            reply = "Hubo un problema registrando tu visita. ¿Podemos intentar de nuevo?"
-            reg_done = False
-
-        # save assistant message
-        history.append({"role": "assistant", "content": reply})
-
+            return ChatResponse(
+                conversation_id=conversation.id,
+                reply=reply,
+                stage="completed",
+                registration_completed=True,
+                wait_listed=result.get("wait_listed", False),
+                suggested_tours=[],
+            )
+    
+    # --- Si es respuesta de texto ---
+    if output.type == "message":
+        reply = output.content[0].text
         return ChatResponse(
-            conversation_id=conv_id,
+            conversation_id=conversation.id,
             reply=reply,
             stage="chat",
-            registration_completed=reg_done,
-            wait_listed=result.get("wait_listed", False),
+            registration_completed=False,
+            wait_listed=False,
             suggested_tours=[],
         )
-
-    # CASE 2: Normal text reply from model
-    reply_text = output.content[0].text
-    history.append({"role": "assistant", "content": reply_text})
-
-    return ChatResponse(
-        conversation_id=conv_id,
-        reply=reply_text,
-        stage="chat",
-        registration_completed=False,
-        wait_listed=False,
-        suggested_tours=[],
-    )
-
+    
