@@ -126,7 +126,7 @@ def _build_course_capacity_text(db, max_items: int = 10) -> str:
         lines.append("... hay más grados; responde de forma general si preguntan por otros.")
 
     lines.append(
-        "Si un grado está en lista prioritaria, ofrece registrar para asignar prioridad y "
+        "Si un grado está en lista prioritaria, ofrece registrar al tour de todas maneras para asignar prioridad y "
         "contacto de seguimiento."
     )
     return "\n".join(lines)
@@ -155,10 +155,10 @@ def init_chat(db=Depends(get_db_session)):
 
     # Mensaje inicial (generado por el agente)
     system_intro = (
-        "Hola 👋 soy SAM, tu asistente de Admisiones del Colegio Montebello. "
+        "Hola 👋 soy SAM, tu asistente de Admisiones del Montebello. "
         "¿En qué puedo ayudarte hoy? Puedo resolver tus dudas y, si deseas registrarte "
         "al tour informativo, avísame y te compartiré las fechas disponibles. "
-        "Para empezar, ¿cómo te gustaría que te llame?"
+        "Para empezar, ¿Me podrías decir tu nombre?"
     )
 
     # Obtener fechas activas (para mostrar en el frontend si hace falta)
