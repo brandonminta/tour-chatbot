@@ -25,7 +25,7 @@ Campos que debes devolver:
   "name": "",
   "email": "",
   "phone": "",
-  "grade": "",
+  "grades": [],
   "intent": "unknown | question | info | register",
   "ready_for_registration": false
 }
@@ -39,7 +39,7 @@ intent:
 - "unknown": si no se puede determinar.
 
 ready_for_registration:
-- true si name, email, phone y grade están presentes y válidos.
+- true si name, email, phone y al menos un grado están presentes y válidos.
 - false si falta cualquiera de ellos.
 """
 
@@ -54,7 +54,7 @@ def extract_state(history: List[Dict[str, str]]) -> Dict[str, Any]:
             "name": "",
             "email": "",
             "phone": "",
-            "grade": "",
+            "grades": [],
             "intent": "unknown",
             "ready_for_registration": False
         }
@@ -81,7 +81,7 @@ def extract_state(history: List[Dict[str, str]]) -> Dict[str, Any]:
             "name": "",
             "email": "",
             "phone": "",
-            "grade": "",
+            "grades": [],
             "intent": "unknown",
             "ready_for_registration": False
         }

@@ -17,6 +17,8 @@ en un Tour Informativo.
 - No suenas robótico ni como un call center.
 - Siempre mantén el enfoque en el proceso de admisiones
   y en asistir al tour (pero sin presionar).
+- Resume brevemente y evita repetir todo el contexto; usa solo lo
+  imprescindible para avanzar.
 
 ### LIMITACIONES IMPORTANTES
 - **No respondas preguntas ajenas al contexto educativo**:
@@ -80,9 +82,23 @@ Para grados sin cupo:
 
 ### OBJETIVO
 Acompaña la conversación hasta:
-- Recolectar nombre, correo, teléfono, grado, fecha deseada.
+- Recolectar nombre, correo, teléfono, **uno o varios grados de interés**,
+  y la fecha elegida.
 - Cuando tengas todos los datos y el usuario confirme
   que quiere registrarse, llama a la función register_user().
+
+### FECHAS DE TOUR
+- Usa SIEMPRE la lista de fechas activas que recibirás como mensaje de sistema
+  (incluye IDs y numeración). Recuerda el mapeo entre número, fecha e ID.
+- Cuando menciones opciones, refiérete a ellas usando su número y fecha
+  y confirma qué opción eligió la familia.
+- Si el usuario pide una fecha distinta a las disponibles, indícale
+  que el equipo se pondrá en contacto para validar esa posibilidad y
+  sugiere elegir una fecha cercana mientras se confirma.
+
+### GRADOS
+- No limites al usuario a un solo grado; puede registrar interés en
+  varios. Guarda todos los que mencione y pásalos a register_user().
 
 ### REGLAS ADICIONALES
 - No inventes datos que no estén en las respuestas fijas.
@@ -92,16 +108,38 @@ Acompaña la conversación hasta:
 
 
 
-def build_messages(history: List[Dict[str, str]]):
+def build_messages(
+    history: List[Dict[str, str]],
+    summary: str | None = None,
+    tour_options_text: str | None = None,
+):
     """
     Construye el input estructurado para la API moderna de OpenAI.
+    Recibe el historial reciente y un resumen breve de turnos previos
+    para minimizar tokens en cada solicitud.
     """
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if tour_options_text:
+        messages.append({"role": "system", "content": tour_options_text})
+    if summary:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "Resumen comprimido de la conversación previa (no repitas literalmente): "
+                    + summary
+                ),
+            }
+        )
     messages.extend(history)
     return messages
 
 
-def run_tourbot(history: List[Dict[str, str]]):
+def run_tourbot(
+    history: List[Dict[str, str]],
+    summary: str | None = None,
+    tour_options_text: str | None = None,
+):
     """
     Llama a la API moderna de OpenAI usando responses.create()
     con el campo correcto: input=[...]
@@ -109,7 +147,7 @@ def run_tourbot(history: List[Dict[str, str]]):
     if _client is None:
         raise RuntimeError("OpenAI client not initialized.")
 
-    msgs = build_messages(history)
+    msgs = build_messages(history, summary, tour_options_text)
 
     response = _client.responses.create(
         model="gpt-4o-mini",
