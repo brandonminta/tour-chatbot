@@ -97,7 +97,7 @@ def run_tourbot(
         input=msgs,                   
         tools=[REGISTER_USER_FUNCTION],
         tool_choice="auto",
-        max_output_tokens=200,
+        max_output_tokens=150,
         temperature=0.6,
     )
     usage = response.usage
