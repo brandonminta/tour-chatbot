@@ -2,7 +2,7 @@ const chatBox = document.getElementById('chat-box');
 const input = document.getElementById('message');
 const form = document.getElementById('chat-form');
 const typingIndicator = document.getElementById('typing-indicator');
-const tourSuggestions = document.getElementById('tour-suggestions');
+const connectionBanner = document.getElementById('connection-banner');
 const sendBtn = document.getElementById('send-btn');
 
 let conversationId = sessionStorage.getItem('sam-conversation-id') || '';
@@ -25,46 +25,43 @@ const toggleTyping = (show) => {
     typingIndicator.classList.toggle('hidden', !show);
 };
 
-const setSuggestions = (items = []) => {
-    tourSuggestions.innerHTML = '';
-    if (!items.length) {
-        const empty = document.createElement('p');
-        empty.className = 'chat-subtitle';
-        empty.textContent = 'SAM te informará apenas se abran nuevos cupos.';
-        tourSuggestions.appendChild(empty);
-        return;
-    }
-
-    const hint = document.createElement('p');
-    hint.className = 'chat-subtitle';
-    hint.textContent = 'Elige una fecha de la lista (escribe el número o haz clic para copiarla).';
-    tourSuggestions.appendChild(hint);
-
-    items.forEach((item) => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'tour-chip';
-        chip.textContent = item;
-        chip.title = 'Haz clic para copiar la fecha y luego envíala con Enter';
-        chip.addEventListener('click', () => {
-            input.value = item.split('·')[0].replace(/^[0-9]+\.\s*/, '').trim();
-            input.focus();
-        });
-        tourSuggestions.appendChild(chip);
-    });
+const setConnectionBanner = (text = '', state = 'warning') => {
+    connectionBanner.textContent = text;
+    connectionBanner.className = `connection-banner ${state}`;
+    connectionBanner.classList.toggle('hidden', !text);
 };
 
-const initializeChat = async () => {
+const requestWithRetry = async (url, options = {}, attempts = 2) => {
+    let lastError;
+    for (let i = 0; i < attempts; i += 1) {
+        try {
+            const res = await fetch(url, options);
+            if (!res.ok) throw new Error(`Error ${res.status}`);
+            return res;
+        } catch (error) {
+            lastError = error;
+            await new Promise((resolve) => setTimeout(resolve, 400 * (i + 1)));
+        }
+    }
+    throw lastError;
+};
+
+const initializeChat = async ({ silent = false } = {}) => {
     try {
-        const res = await fetch('/chat/init');
+        setConnectionBanner('Conectando con SAM…', 'ok');
+        const res = await requestWithRetry('/chat/init');
         if (!res.ok) throw new Error('No se pudo iniciar el chat');
         const data = await res.json();
         conversationId = data.conversation_id;
         sessionStorage.setItem('sam-conversation-id', conversationId);
-        addMessage(data.reply, 'bot');
-        setSuggestions(data.suggested_tours);
+        if (!silent) {
+            addMessage(data.reply, 'bot');
+        }
+        setConnectionBanner('', 'ok');
     } catch (error) {
         addMessage('No pude conectarme con SAM en este momento. Intenta nuevamente.', 'bot');
+        setConnectionBanner('Sin conexión. Reintentaremos en unos segundos…', 'error');
+        setTimeout(() => initializeChat({ silent: true }), 1200);
     }
 };
 
@@ -79,14 +76,18 @@ const sendMessage = async () => {
     sendBtn.disabled = true;
 
     try {
-        const res = await fetch('/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message: text,
-                conversation_id: conversationId,
-            }),
-        });
+        const res = await requestWithRetry(
+            '/chat',
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: text,
+                    conversation_id: conversationId,
+                }),
+            },
+            2,
+        );
 
         if (!res.ok) throw new Error('Error al contactar el servidor');
 
@@ -95,10 +96,18 @@ const sendMessage = async () => {
         sessionStorage.setItem('sam-conversation-id', conversationId);
 
         addMessage(data.reply, 'bot');
-        setSuggestions(data.suggested_tours);
+
+        if (data.registration_completed) {
+            setTimeout(() => {
+                window.location.href = '/gracias';
+            }, 700);
+        }
 
     } catch (error) {
-        addMessage('Hubo un problema de conexión. Por favor intenta nuevamente.', 'bot');
+        addMessage('Hubo un problema de conexión. Restableciendo la sesión…', 'bot');
+        setConnectionBanner('Se perdió la conexión. Intentando reconectar…', 'warning');
+        await initializeChat({ silent: true });
+        addMessage('Listo, volvimos a conectarnos. ¿Continuamos con tu registro?', 'bot');
     } finally {
         toggleTyping(false);
         isSending = false;

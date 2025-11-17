@@ -37,6 +37,18 @@ class TourDate:
 
 
 @dataclass
+class Course:
+    id: int
+    name: str
+    capacity_available: int
+    waitlist_count: int
+
+    @property
+    def is_full(self) -> bool:
+        return self.capacity_available <= 0
+
+
+@dataclass
 class Registration:
     id: int
     first_name: str
@@ -70,6 +82,16 @@ def init_db(seed_days: int = 4) -> None:
         )
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS courses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                capacity_available INTEGER NOT NULL DEFAULT 0,
+                waitlist_count INTEGER NOT NULL DEFAULT 0
+            )
+            """
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS registrations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 first_name TEXT NOT NULL,
@@ -92,6 +114,21 @@ def init_db(seed_days: int = 4) -> None:
                     "INSERT INTO tour_dates(date, capacity, registered, status) VALUES (?, ?, 0, 'open')",
                     (day.isoformat(), 12 if offset % 2 == 0 else 10),
                 )
+        course_count = conn.execute("SELECT COUNT(*) FROM courses").fetchone()[0]
+        if course_count == 0:
+            seeds = [
+                ("Inicial", 6),
+                ("1° EGB", 4),
+                ("2° EGB", 2),
+                ("3° EGB", 1),
+                ("4° EGB", 0),
+                ("5° EGB", 0),
+                ("6° EGB", 3),
+            ]
+            conn.executemany(
+                "INSERT INTO courses(name, capacity_available, waitlist_count) VALUES (?, ?, 0)",
+                seeds,
+            )
         conn.commit()
     finally:
         conn.close()
@@ -149,6 +186,64 @@ def find_tour_by_input(conn: sqlite3.Connection, user_choice: str) -> Optional[T
         if any(opt.startswith(user_choice) for opt in options):
             return tour
     return None
+
+
+def _row_to_course(row: sqlite3.Row) -> Course:
+    return Course(
+        id=row["id"],
+        name=row["name"],
+        capacity_available=row["capacity_available"],
+        waitlist_count=row["waitlist_count"],
+    )
+
+
+def list_courses(conn: sqlite3.Connection) -> List[Course]:
+    rows = conn.execute("SELECT * FROM courses ORDER BY id ASC").fetchall()
+    return [_row_to_course(row) for row in rows]
+
+
+def _find_course_match(courses: List[Course], grade: str) -> Optional[Course]:
+    g = grade.strip().lower()
+    for course in courses:
+        name = course.name.lower()
+        if g == name:
+            return course
+        if g in name or name in g:
+            return course
+    return None
+
+
+def reserve_course_interest(conn: sqlite3.Connection, grades: List[str]) -> dict:
+    """Reduce capacidad disponible por grado y refleja si alguna se lista en espera."""
+
+    courses = list_courses(conn)
+    wait_listed = False
+    matched = []
+
+    for grade in grades:
+        course = _find_course_match(courses, grade)
+        if not course:
+            continue
+
+        status = "available"
+        if course.is_full:
+            wait_listed = True
+            status = "waitlist"
+            conn.execute(
+                "UPDATE courses SET waitlist_count = waitlist_count + 1 WHERE id = ?",
+                (course.id,),
+            )
+        else:
+            conn.execute(
+                "UPDATE courses SET capacity_available = capacity_available - 1 WHERE id = ?",
+                (course.id,),
+            )
+            course.capacity_available -= 1
+
+        matched.append({"course": course.name, "status": status})
+
+    conn.commit()
+    return {"wait_listed": wait_listed, "matched": matched}
 
 
 def _row_to_registration(row: sqlite3.Row) -> Registration:

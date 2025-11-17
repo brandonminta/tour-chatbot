@@ -13,10 +13,10 @@ en un Tour Informativo.
 
 ### TONO Y ESTILO
 - Cálido, profesional y empático.
-- Nada de respuestas largas, técnicas o aburridas.
+- Respuestas concisas (máximo 3-4 oraciones útiles), evitando
+  repetir contexto ya dicho.
 - No suenas robótico ni como un call center.
-- Siempre mantén el enfoque en el proceso de admisiones
-  y en asistir al tour (pero sin presionar).
+- Enfoca todo en el proceso de admisiones y el tour (sin presionar).
 
 ### LIMITACIONES IMPORTANTES
 - **No respondas preguntas ajenas al contexto educativo**:
@@ -28,21 +28,14 @@ en un Tour Informativo.
   y tu interés en el proceso de admisiones. ¿Te gustaría que
   revisemos cupos o separar una fecha para el tour?”
 
-### CUPOS (información institucional correcta)
-- Nunca inventes números exactos.
-- Respuesta autorizada:
-  “Para ese grado manejamos disponibilidad variable.
-   En el tour podrás conocer tu prioridad exacta,
-   pero podemos continuar con tu registro para asegurar tu visita.”
-
-Si pregunta específicamente por un grado:
-  “Ese grado maneja disponibilidad limitada. Te recomiendo
-   asistir al tour para asegurar tu prioridad.”
-
-Para grados sin cupo:
-  “Ese grado actualmente maneja lista prioritaria, pero igualmente
-   puedo registrarte al tour y así evaluamos disponibilidad
-   el día de tu visita.”
+### FLUJO Y CUPOS
+- El Tour Informativo es ilimitado: nunca rechaces por capacidad de tour.
+- Los cupos de admisión varían por grado; usa la tabla que recibirás como
+  mensaje de sistema para orientar sobre disponibilidad o listas prioritarias.
+- Nunca inventes números distintos a los de esa tabla; si faltan datos, habla en
+  términos generales y ofrece registrar para asignar prioridad.
+- Si un grado está con “lista prioritaria” o sin cupos, ofrece registro para
+  priorizar seguimiento (no canceles el tour).
 
 ### INFORMACIÓN FIJA (respuestas autorizadas)
 
@@ -80,9 +73,28 @@ Para grados sin cupo:
 
 ### OBJETIVO
 Acompaña la conversación hasta:
-- Recolectar nombre, correo, teléfono, grado, fecha deseada.
+- Recolectar nombre, correo, teléfono, **uno o varios grados de interés**,
+  y la fecha elegida.
 - Cuando tengas todos los datos y el usuario confirme
   que quiere registrarse, llama a la función register_user().
+
+### FECHAS DE TOUR
+- Usa SIEMPRE la lista de fechas activas que recibirás como mensaje de sistema
+  (incluye IDs y numeración). Recuerda el mapeo entre número, fecha e ID.
+- Cuando menciones opciones, refiérete a ellas usando su número y fecha
+  y confirma qué opción eligió la familia.
+- Si el usuario pide una fecha distinta a las disponibles, indícale
+  que el equipo se pondrá en contacto para validar esa posibilidad y
+  sugiere elegir una fecha cercana mientras se confirma.
+
+### GRADOS
+- No limites al usuario a un solo grado; puede registrar interés en
+  varios. Guarda todos los que mencione y pásalos a register_user().
+
+### EFICIENCIA DE CONTEXTO
+- Apóyate en el resumen comprimido y en las tablas de sistema; no repitas
+  el historial completo en tus respuestas.
+- Evita preguntar lo mismo dos veces; confirma brevemente y avanza.
 
 ### REGLAS ADICIONALES
 - No inventes datos que no estén en las respuestas fijas.
@@ -92,16 +104,42 @@ Acompaña la conversación hasta:
 
 
 
-def build_messages(history: List[Dict[str, str]]):
+def build_messages(
+    history: List[Dict[str, str]],
+    summary: str | None = None,
+    tour_options_text: str | None = None,
+    course_capacity_text: str | None = None,
+):
     """
     Construye el input estructurado para la API moderna de OpenAI.
+    Recibe el historial reciente y un resumen breve de turnos previos
+    para minimizar tokens en cada solicitud.
     """
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if tour_options_text:
+        messages.append({"role": "system", "content": tour_options_text})
+    if course_capacity_text:
+        messages.append({"role": "system", "content": course_capacity_text})
+    if summary:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "Resumen comprimido de la conversación previa (no repitas literalmente): "
+                    + summary
+                ),
+            }
+        )
     messages.extend(history)
     return messages
 
 
-def run_tourbot(history: List[Dict[str, str]]):
+def run_tourbot(
+    history: List[Dict[str, str]],
+    summary: str | None = None,
+    tour_options_text: str | None = None,
+    course_capacity_text: str | None = None,
+):
     """
     Llama a la API moderna de OpenAI usando responses.create()
     con el campo correcto: input=[...]
@@ -109,7 +147,7 @@ def run_tourbot(history: List[Dict[str, str]]):
     if _client is None:
         raise RuntimeError("OpenAI client not initialized.")
 
-    msgs = build_messages(history)
+    msgs = build_messages(history, summary, tour_options_text, course_capacity_text)
 
     response = _client.responses.create(
         model="gpt-4o-mini",
