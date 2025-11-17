@@ -3,6 +3,7 @@ const input = document.getElementById('message');
 const form = document.getElementById('chat-form');
 const typingIndicator = document.getElementById('typing-indicator');
 const tourSuggestions = document.getElementById('tour-suggestions');
+const connectionBanner = document.getElementById('connection-banner');
 const sendBtn = document.getElementById('send-btn');
 
 let conversationId = sessionStorage.getItem('sam-conversation-id') || '';
@@ -23,6 +24,27 @@ const addMessage = (text, sender = 'bot') => {
 
 const toggleTyping = (show) => {
     typingIndicator.classList.toggle('hidden', !show);
+};
+
+const setConnectionBanner = (text = '', state = 'warning') => {
+    connectionBanner.textContent = text;
+    connectionBanner.className = `connection-banner ${state}`;
+    connectionBanner.classList.toggle('hidden', !text);
+};
+
+const requestWithRetry = async (url, options = {}, attempts = 2) => {
+    let lastError;
+    for (let i = 0; i < attempts; i += 1) {
+        try {
+            const res = await fetch(url, options);
+            if (!res.ok) throw new Error(`Error ${res.status}`);
+            return res;
+        } catch (error) {
+            lastError = error;
+            await new Promise((resolve) => setTimeout(resolve, 400 * (i + 1)));
+        }
+    }
+    throw lastError;
 };
 
 const setSuggestions = (items = []) => {
@@ -48,23 +70,40 @@ const setSuggestions = (items = []) => {
         chip.title = 'Haz clic para copiar la fecha y luego envíala con Enter';
         chip.addEventListener('click', () => {
             input.value = item.split('·')[0].replace(/^[0-9]+\.\s*/, '').trim();
-            input.focus();
+            sendMessage();
         });
         tourSuggestions.appendChild(chip);
     });
+
+    const otherDate = document.createElement('button');
+    otherDate.type = 'button';
+    otherDate.className = 'tour-chip alt';
+    otherDate.textContent = 'Otra fecha';
+    otherDate.title = 'Si necesitas una fecha distinta, SAM coordinará contigo';
+    otherDate.addEventListener('click', () => {
+        input.value = '¿Podemos agendar otra fecha para el tour?';
+        sendMessage();
+    });
+    tourSuggestions.appendChild(otherDate);
 };
 
-const initializeChat = async () => {
+const initializeChat = async ({ silent = false } = {}) => {
     try {
-        const res = await fetch('/chat/init');
+        setConnectionBanner('Conectando con SAM…', 'ok');
+        const res = await requestWithRetry('/chat/init');
         if (!res.ok) throw new Error('No se pudo iniciar el chat');
         const data = await res.json();
         conversationId = data.conversation_id;
         sessionStorage.setItem('sam-conversation-id', conversationId);
-        addMessage(data.reply, 'bot');
+        if (!silent) {
+            addMessage(data.reply, 'bot');
+        }
         setSuggestions(data.suggested_tours);
+        setConnectionBanner('', 'ok');
     } catch (error) {
         addMessage('No pude conectarme con SAM en este momento. Intenta nuevamente.', 'bot');
+        setConnectionBanner('Sin conexión. Reintentaremos en unos segundos…', 'error');
+        setTimeout(() => initializeChat({ silent: true }), 1200);
     }
 };
 
@@ -79,14 +118,18 @@ const sendMessage = async () => {
     sendBtn.disabled = true;
 
     try {
-        const res = await fetch('/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message: text,
-                conversation_id: conversationId,
-            }),
-        });
+        const res = await requestWithRetry(
+            '/chat',
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: text,
+                    conversation_id: conversationId,
+                }),
+            },
+            2,
+        );
 
         if (!res.ok) throw new Error('Error al contactar el servidor');
 
@@ -97,8 +140,17 @@ const sendMessage = async () => {
         addMessage(data.reply, 'bot');
         setSuggestions(data.suggested_tours);
 
+        if (data.registration_completed) {
+            setTimeout(() => {
+                window.location.href = '/gracias';
+            }, 700);
+        }
+
     } catch (error) {
-        addMessage('Hubo un problema de conexión. Por favor intenta nuevamente.', 'bot');
+        addMessage('Hubo un problema de conexión. Restableciendo la sesión…', 'bot');
+        setConnectionBanner('Se perdió la conexión. Intentando reconectar…', 'warning');
+        await initializeChat({ silent: true });
+        addMessage('Listo, volvimos a conectarnos. ¿Continuamos con tu registro?', 'bot');
     } finally {
         toggleTyping(false);
         isSending = false;
