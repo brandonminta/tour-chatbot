@@ -28,8 +28,8 @@ class ConversationThread:
     history: List[Dict[str, str]] = field(default_factory=list)
     summary: str = ""
 
-    MAX_MESSAGES: int = 14
-    RECENT_MESSAGES: int = 10
+    MAX_MESSAGES: int = 10
+    RECENT_MESSAGES: int = 6
 
     def append(self, role: str, content: str) -> None:
         self.history.append({"role": role, "content": content})
@@ -98,20 +98,14 @@ def _build_tour_context_text(db) -> str:
             "indica que abriremos nuevas fechas y ofrece tomar sus datos para avisar."
         )
 
-    lines = [
-        "Fechas activas del tour (usa estos números e IDs al registrar):"
-    ]
+    lines = ["Fechas activas del tour (elige número o fecha y mapea al ID interno):"]
     for idx, t in enumerate(tours, 1):
-        lines.append(
-            f"{idx}. {t.date.strftime('%d/%m/%Y')} · ID interno {t.id} · tour sin cupo límite"
-        )
+        lines.append(f"{idx}. {t.date.strftime('%d/%m/%Y')} · ID {t.id}")
 
-    lines.append(
-        "Si el usuario menciona 'opción 2', 'la segunda', o la fecha, mapea su elección "
-        "al ID interno correspondiente."
-    )
+    lines.append("Si piden otra fecha, ofrece tomar datos y sugerir la más cercana.")
 
     return "\n".join(lines)
+
 
 
 def _build_course_capacity_text(db, max_items: int = 10) -> str:
@@ -122,9 +116,7 @@ def _build_course_capacity_text(db, max_items: int = 10) -> str:
             " manejamos listas prioritarias y que el tour define su prioridad."
         )
 
-    lines = [
-        "Capacidades de admisión por grado (no afectan al tour; el tour es ilimitado):"
-    ]
+    lines = ["Capacidades de admisión por grado (el tour es ilimitado):"]
 
     for course in courses[:max_items]:
         status = "lista prioritaria" if course.capacity_available <= 0 else f"{course.capacity_available} cupos"
@@ -161,23 +153,16 @@ def init_chat(db=Depends(get_db_session)):
     # Crear historial vacío
     conversations[conv_id] = ConversationThread()
 
-    # Obtener fechas activas (solo para mostrar al usuario)
-    suggestions = _build_tour_suggestions(db)
-
     # Mensaje inicial (generado por el agente)
     system_intro = (
         "Hola 👋 soy SAM, tu asistente de Admisiones del Colegio Montebello. "
-        "El tour informativo no tiene límite de cupos y sirve para conocer la escuela y tu prioridad de admisión. "
-        "Para comenzar, ¿cómo te gustaría que te llame?"
+        "¿En qué puedo ayudarte hoy? Puedo resolver tus dudas y, si deseas registrarte "
+        "al tour informativo, avísame y te compartiré las fechas disponibles. "
+        "Para empezar, ¿cómo te gustaría que te llame?"
     )
 
-    if suggestions:
-        system_intro += "\nEstas son las fechas disponibles de tour:" + "\n" + "\n".join(suggestions)
-        system_intro += "\nElige el número o escribe la fecha que prefieras."
-    else:
-        system_intro += (
-            "\nPor ahora no hay fechas visibles, pero puedo tomar tus datos para avisarte en cuanto se abra un cupo."
-        )
+    # Obtener fechas activas (para mostrar en el frontend si hace falta)
+    suggestions = _build_tour_suggestions(db)
 
     # Guardar como respuesta inicial del bot
     conversations[conv_id].append("assistant", system_intro)
