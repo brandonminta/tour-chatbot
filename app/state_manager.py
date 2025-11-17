@@ -66,7 +66,7 @@ def extract_state(history: List[Dict[str, str]]) -> Dict[str, Any]:
 
     try:
         completion = _client.responses.create(
-            model="gpt-4.1-mini",
+            model="gpt-4o-mini",
             messages=messages,
             response_format={"type": "json_object"},
             temperature=0,
