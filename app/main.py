@@ -1,4 +1,3 @@
-"""FastAPI entry point for the Montebello TourBot (Optimized Version)."""
 
 from __future__ import annotations
 
