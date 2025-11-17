@@ -2,7 +2,6 @@ const chatBox = document.getElementById('chat-box');
 const input = document.getElementById('message');
 const form = document.getElementById('chat-form');
 const typingIndicator = document.getElementById('typing-indicator');
-const tourSuggestions = document.getElementById('tour-suggestions');
 const connectionBanner = document.getElementById('connection-banner');
 const sendBtn = document.getElementById('send-btn');
 
@@ -47,46 +46,6 @@ const requestWithRetry = async (url, options = {}, attempts = 2) => {
     throw lastError;
 };
 
-const setSuggestions = (items = []) => {
-    tourSuggestions.innerHTML = '';
-    if (!items.length) {
-        const empty = document.createElement('p');
-        empty.className = 'chat-subtitle';
-        empty.textContent = 'SAM te informará apenas se abran nuevos cupos.';
-        tourSuggestions.appendChild(empty);
-        return;
-    }
-
-    const hint = document.createElement('p');
-    hint.className = 'chat-subtitle';
-    hint.textContent = 'Elige una fecha de la lista (escribe el número o haz clic para copiarla).';
-    tourSuggestions.appendChild(hint);
-
-    items.forEach((item) => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'tour-chip';
-        chip.textContent = item;
-        chip.title = 'Haz clic para copiar la fecha y luego envíala con Enter';
-        chip.addEventListener('click', () => {
-            input.value = item.split('·')[0].replace(/^[0-9]+\.\s*/, '').trim();
-            sendMessage();
-        });
-        tourSuggestions.appendChild(chip);
-    });
-
-    const otherDate = document.createElement('button');
-    otherDate.type = 'button';
-    otherDate.className = 'tour-chip alt';
-    otherDate.textContent = 'Otra fecha';
-    otherDate.title = 'Si necesitas una fecha distinta, SAM coordinará contigo';
-    otherDate.addEventListener('click', () => {
-        input.value = '¿Podemos agendar otra fecha para el tour?';
-        sendMessage();
-    });
-    tourSuggestions.appendChild(otherDate);
-};
-
 const initializeChat = async ({ silent = false } = {}) => {
     try {
         setConnectionBanner('Conectando con SAM…', 'ok');
@@ -98,7 +57,6 @@ const initializeChat = async ({ silent = false } = {}) => {
         if (!silent) {
             addMessage(data.reply, 'bot');
         }
-        setSuggestions(data.suggested_tours);
         setConnectionBanner('', 'ok');
     } catch (error) {
         addMessage('No pude conectarme con SAM en este momento. Intenta nuevamente.', 'bot');
@@ -138,7 +96,12 @@ const sendMessage = async () => {
         sessionStorage.setItem('sam-conversation-id', conversationId);
 
         addMessage(data.reply, 'bot');
-        setSuggestions(data.suggested_tours);
+
+        if (data.registration_completed) {
+            setTimeout(() => {
+                window.location.href = '/gracias';
+            }, 700);
+        }
 
         if (data.registration_completed) {
             setTimeout(() => {

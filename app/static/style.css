@@ -153,47 +153,6 @@ h1 {
     display: none;
 }
 
-.section-label {
-    font-size: 0.85rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin: 0;
-}
-
-.tour-suggestions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 8px;
-}
-
-.tour-chip {
-    padding: 10px 14px;
-    background: #e0f2fe;
-    border-radius: 16px;
-    font-size: 0.85rem;
-    color: #0369a1;
-    cursor: pointer;
-    transition: transform 0.2s ease, background 0.2s ease;
-    border: none;
-}
-
-.tour-chip:hover {
-    transform: translateY(-2px);
-    background: #bae6fd;
-}
-
-.tour-chip.alt {
-    background: #fff1f2;
-    color: #be123c;
-    border: 1px solid #fecdd3;
-}
-
-.tour-chip.alt:hover {
-    background: #ffe4e6;
-}
-
 .input-bar {
     display: flex;
     gap: 12px;

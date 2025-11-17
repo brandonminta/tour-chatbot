@@ -40,11 +40,14 @@ class ConversationThread:
             return
 
         state = extract_state(self.history)
+        grades = state.get("grades") or state.get("grade") or []
+        if isinstance(grades, str):
+            grades = [g.strip() for g in grades.split(",") if g.strip()]
         snapshot = (
             f"Nombre: {state.get('name') or 'sin nombre'}, "
             f"Email: {state.get('email') or 'no indicado'}, "
             f"Teléfono: {state.get('phone') or 'no indicado'}, "
-            f"Grado: {state.get('grade') or 'no indicado'}, "
+            f"Grados: {', '.join(grades) or 'no indicado'}, "
             f"Intención: {state.get('intent')}, "
             f"Listo para registro: {'sí' if state.get('ready_for_registration') else 'no'}"
         )
@@ -87,6 +90,30 @@ def _build_tour_suggestions(db) -> List[str]:
     ]
 
 
+def _build_tour_context_text(db) -> str:
+    tours = list_active_tours(db)
+    if not tours:
+        return (
+            "No hay fechas activas de tour en el calendario. Si el usuario pregunta, "
+            "indica que abriremos nuevas fechas y ofrece tomar sus datos para avisar."
+        )
+
+    lines = [
+        "Fechas activas del tour (usa estos números e IDs al registrar):"
+    ]
+    for idx, t in enumerate(tours, 1):
+        lines.append(
+            f"{idx}. {t.date.strftime('%d/%m/%Y')} · ID interno {t.id} · capacidad {t.capacity} familias"
+        )
+
+    lines.append(
+        "Si el usuario menciona 'opción 2', 'la segunda', o la fecha, mapea su elección "
+        "al ID interno correspondiente."
+    )
+
+    return "\n".join(lines)
+
+
 @app.get("/", response_class=HTMLResponse)
 def home():
     return HTMLResponse(INDEX_FILE.read_text(encoding="utf-8"))
@@ -118,6 +145,12 @@ def init_chat(db=Depends(get_db_session)):
         "Para comenzar, ¿cómo te gustaría que te llame?"
     )
 
+    if suggestions:
+        system_intro += "\nEstas son las fechas disponibles de tour:" + "\n" + "\n".join(suggestions)
+        system_intro += "\nElige el número o escribe la fecha que prefieras."
+    else:
+        system_intro += "\nPor ahora no hay fechas visibles, pero puedo tomar tus datos para avisarte en cuanto se abra un cupo."
+
     # Guardar como respuesta inicial del bot
     conversations[conv_id].append("assistant", system_intro)
 
@@ -145,7 +178,13 @@ def chat(req: ChatRequest, db=Depends(get_db_session)):
     conversation.append("user", req.message)
 
     # Obtener respuesta del agente
-    raw_response = run_tourbot(conversation.history, conversation.summary)
+    tour_options_text = _build_tour_context_text(db)
+
+    raw_response = run_tourbot(
+        conversation.history,
+        conversation.summary,
+        tour_options_text,
+    )
     output = raw_response.output[0]
 
     suggestions = _build_tour_suggestions(db)
