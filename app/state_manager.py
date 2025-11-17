@@ -1,7 +1,8 @@
 # app/state_manager.py
+
 """
-Semantic extractor for user profile data in the Montebello TourBot.
-Uses a lightweight OpenAI JSON-extraction model.
+Lightweight semantic extractor for Montebello TourBot.
+Optimized for low token usage and stable JSON extraction.
 """
 
 from __future__ import annotations
@@ -9,46 +10,33 @@ from typing import List, Dict, Any
 from .openai_client import _client
 
 EXTRACTION_PROMPT = """
-Eres un analizador que toma el historial completo de un chat entre un usuario 
-y SAM (asistente de Admisiones Montebello), y devuelve un JSON estructurado.
+Extrae del diálogo solo los datos mencionados.
+No inventes nada.
 
-Reglas:
-- No inventes datos.
-- Solo usa la información que realmente aparece en el diálogo.
-- Si un dato no aparece, déjalo como cadena vacía "".
-- Debes inferir si el usuario tiene intención de registrarse.
-- Esta extracción NO es la respuesta del chatbot; es solo análisis.
-
-Campos que debes devolver:
+Debes devolver este JSON:
 
 {
   "name": "",
   "email": "",
   "phone": "",
   "grades": [],
-  "intent": "unknown | question | info | register",
+  "intent": "unknown | info | question | register",
   "ready_for_registration": false
 }
 
-Criterios:
-
-intent:
-- "register": si el usuario expresa deseo de asistir, separar cupo, agendar, registrarse.
-- "question": si hace preguntas sobre cupos, grados, proceso.
-- "info": si solo busca información general.
-- "unknown": si no se puede determinar.
-
-ready_for_registration:
-- true si name, email, phone y al menos un grado están presentes y válidos.
-- false si falta cualquiera de ellos.
+Reglas:
+- intent="register" si el usuario quiere separar cupo, asistir o agendar.
+- ready_for_registration=true solo si name, email, phone y grades[] están completos.
+- Si algún dato no aparece, déjalo vacío.
 """
 
 def extract_state(history: List[Dict[str, str]]) -> Dict[str, Any]:
     """
-    Ejecuta una extracción semántica del estado actual del usuario
-    basado en el historial de conversación.
+    Performs semantic extraction using a small JSON-only model.
+    Only the last few user/assistant turns are sent to reduce token usage.
     """
 
+    # No client (offline mode)
     if not _client:
         return {
             "name": "",
@@ -56,32 +44,41 @@ def extract_state(history: List[Dict[str, str]]) -> Dict[str, Any]:
             "phone": "",
             "grades": [],
             "intent": "unknown",
-            "ready_for_registration": False
+            "ready_for_registration": False,
         }
+
+    # Keep only last 4 messages
+    slim_history = history[-4:]
+
+    # Convert to minimal text for lower token usage
+    dialogue_text = "\n".join(
+        f"{m['role'][0].upper()}: {m['content']}" for m in slim_history
+    )
 
     messages = [
         {"role": "system", "content": EXTRACTION_PROMPT},
-        {"role": "user", "content": str(history)}
+        {"role": "user", "content": dialogue_text},
     ]
 
     try:
         completion = _client.responses.create(
             model="gpt-4o-mini",
-            messages=messages,
-            response_format={"type": "json_object"},
+            input=messages,                           # FIX: must be input=
+            response_format={"type": "json_object"},   # stable JSON
             temperature=0,
-            max_output_tokens=200,
+            max_output_tokens=120,
         )
 
-        return completion.output[0].content[0].json  # extracción JSON directa
+        # stable JSON access
+        return completion.output[0].content[0].json
 
-    except Exception:
-        # fallback vacio
+    except Exception as e:
+        print("State extraction failed:", e)
         return {
             "name": "",
             "email": "",
             "phone": "",
             "grades": [],
             "intent": "unknown",
-            "ready_for_registration": False
+            "ready_for_registration": False,
         }
