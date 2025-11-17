@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 from uuid import uuid4
+from dataclasses import dataclass, field
 from typing import Dict, List
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
@@ -13,17 +14,46 @@ from pathlib import Path
 from .schemas import ChatRequest, ChatResponse, InitChatResponse
 from .database import init_db, list_active_tours, get_db_session
 from .tourbot_agent import run_tourbot
+from .state_manager import extract_state
 
 # ------------------------------------------
 # Conversación en memoria
 # ------------------------------------------
 
 # Estructura:
-#   conversations[conversation_id] = [
-#        {"role": "user", "content": "..."},
-#        {"role": "assistant", "content": "..."},
-#   ]
-conversations: Dict[str, List[Dict[str, str]]] = {}
+@dataclass
+class ConversationThread:
+    """Almacena historial y resumen comprimido para ahorrar tokens."""
+
+    history: List[Dict[str, str]] = field(default_factory=list)
+    summary: str = ""
+
+    MAX_MESSAGES: int = 14
+    RECENT_MESSAGES: int = 10
+
+    def append(self, role: str, content: str) -> None:
+        self.history.append({"role": role, "content": content})
+        self._trim()
+
+    def _trim(self) -> None:
+        if len(self.history) <= self.MAX_MESSAGES:
+            return
+
+        state = extract_state(self.history)
+        snapshot = (
+            f"Nombre: {state.get('name') or 'sin nombre'}, "
+            f"Email: {state.get('email') or 'no indicado'}, "
+            f"Teléfono: {state.get('phone') or 'no indicado'}, "
+            f"Grado: {state.get('grade') or 'no indicado'}, "
+            f"Intención: {state.get('intent')}, "
+            f"Listo para registro: {'sí' if state.get('ready_for_registration') else 'no'}"
+        )
+
+        self.summary = " | ".join(filter(None, [self.summary, snapshot])).strip(" |")
+        self.history = self.history[-self.RECENT_MESSAGES :]
+
+
+conversations: Dict[str, ConversationThread] = {}
 
 # ------------------------------------------
 # FastAPI
@@ -49,6 +79,14 @@ def startup_event():
     init_db()
 
 
+def _build_tour_suggestions(db) -> List[str]:
+    tours = list_active_tours(db)
+    return [
+        f"{i+1}. {t.date.strftime('%d/%m/%Y')} · Cupo inmediato · grupos de {t.capacity} familias"
+        for i, t in enumerate(tours)
+    ]
+
+
 @app.get("/", response_class=HTMLResponse)
 def home():
     return HTMLResponse(INDEX_FILE.read_text(encoding="utf-8"))
@@ -68,14 +106,10 @@ def init_chat(db=Depends(get_db_session)):
     conv_id = str(uuid4())
 
     # Crear historial vacío
-    conversations[conv_id] = []
+    conversations[conv_id] = ConversationThread()
 
     # Obtener fechas activas (solo para mostrar al usuario)
-    tours = list_active_tours(db)
-    suggestions = [
-        f"{i+1}. {t.date.strftime('%d/%m/%Y')} · Cupo inmediato · grupos de {t.capacity} familias"
-        for i, t in enumerate(tours)
-    ]
+    suggestions = _build_tour_suggestions(db)
 
     # Mensaje inicial (generado por el agente)
     system_intro = (
@@ -85,7 +119,7 @@ def init_chat(db=Depends(get_db_session)):
     )
 
     # Guardar como respuesta inicial del bot
-    conversations[conv_id].append({"role": "assistant", "content": system_intro})
+    conversations[conv_id].append("assistant", system_intro)
 
     return InitChatResponse(
         conversation_id=conv_id,
@@ -104,15 +138,17 @@ from .functions import execute_register_user
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest, db=Depends(get_db_session)):
 
-    conv_id = req.conversation_id
-    history = conversations.setdefault(conv_id, [])
+    conv_id = req.conversation_id or str(uuid4())
+    conversation = conversations.setdefault(conv_id, ConversationThread())
 
     # Añadir mensaje del usuario al historial
-    history.append({"role": "user", "content": req.message})
+    conversation.append("user", req.message)
 
     # Obtener respuesta del agente
-    raw_response = run_tourbot(history)
+    raw_response = run_tourbot(conversation.history, conversation.summary)
     output = raw_response.output[0]
+
+    suggestions = _build_tour_suggestions(db)
 
     # --- 1. SI ES UNA LLAMADA A FUNCIÓN ---
     # --- Si es llamada a función ---
@@ -131,7 +167,7 @@ def chat(req: ChatRequest, db=Depends(get_db_session)):
                 "En breve recibirás una confirmación por correo."
             )
     
-            history.append({"role": "assistant", "content": reply})
+            conversation.append("assistant", reply)
     
             return ChatResponse(
                 conversation_id=conv_id,
@@ -139,7 +175,7 @@ def chat(req: ChatRequest, db=Depends(get_db_session)):
                 stage="completed",
                 registration_completed=True,
                 wait_listed=result.get("wait_listed", False),
-                suggested_tours=[],
+                suggested_tours=suggestions,
             )
 
 
@@ -148,7 +184,7 @@ def chat(req: ChatRequest, db=Depends(get_db_session)):
         reply = output.content[0].text
 
         # Guardar respuesta del bot
-        history.append({"role": "assistant", "content": reply})
+        conversation.append("assistant", reply)
 
         return ChatResponse(
             conversation_id=conv_id,
@@ -156,5 +192,5 @@ def chat(req: ChatRequest, db=Depends(get_db_session)):
             stage="chat",
             registration_completed=False,
             wait_listed=False,
-            suggested_tours=[],
+            suggested_tours=suggestions,
         )

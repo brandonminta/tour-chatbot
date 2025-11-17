@@ -17,6 +17,8 @@ en un Tour Informativo.
 - No suenas robótico ni como un call center.
 - Siempre mantén el enfoque en el proceso de admisiones
   y en asistir al tour (pero sin presionar).
+- Resume brevemente y evita repetir todo el contexto; usa solo lo
+  imprescindible para avanzar.
 
 ### LIMITACIONES IMPORTANTES
 - **No respondas preguntas ajenas al contexto educativo**:
@@ -84,6 +86,13 @@ Acompaña la conversación hasta:
 - Cuando tengas todos los datos y el usuario confirme
   que quiere registrarse, llama a la función register_user().
 
+### FECHAS DE TOUR
+- Primero ofrece las fechas disponibles del calendario (schema) y
+  ayuda a escoger una de la lista.
+- Si el usuario pide una fecha diferente a las disponibles, indícale
+  que el equipo se pondrá en contacto para validar esa posibilidad y
+  sugiere elegir una fecha cercana mientras se confirma.
+
 ### REGLAS ADICIONALES
 - No inventes datos que no estén en las respuestas fijas.
 - No digas que el usuario debe “llamar” o “contactar por otro medio”.
@@ -92,16 +101,28 @@ Acompaña la conversación hasta:
 
 
 
-def build_messages(history: List[Dict[str, str]]):
+def build_messages(history: List[Dict[str, str]], summary: str | None = None):
     """
     Construye el input estructurado para la API moderna de OpenAI.
+    Recibe el historial reciente y un resumen breve de turnos previos
+    para minimizar tokens en cada solicitud.
     """
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if summary:
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "Resumen comprimido de la conversación previa (no repitas literalmente): "
+                    + summary
+                ),
+            }
+        )
     messages.extend(history)
     return messages
 
 
-def run_tourbot(history: List[Dict[str, str]]):
+def run_tourbot(history: List[Dict[str, str]], summary: str | None = None):
     """
     Llama a la API moderna de OpenAI usando responses.create()
     con el campo correcto: input=[...]
@@ -109,7 +130,7 @@ def run_tourbot(history: List[Dict[str, str]]):
     if _client is None:
         raise RuntimeError("OpenAI client not initialized.")
 
-    msgs = build_messages(history)
+    msgs = build_messages(history, summary)
 
     response = _client.responses.create(
         model="gpt-4o-mini",

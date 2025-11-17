@@ -184,6 +184,16 @@ h1 {
     background: #bae6fd;
 }
 
+.tour-chip.alt {
+    background: #fff1f2;
+    color: #be123c;
+    border: 1px solid #fecdd3;
+}
+
+.tour-chip.alt:hover {
+    background: #ffe4e6;
+}
+
 .input-bar {
     display: flex;
     gap: 12px;
@@ -232,6 +242,27 @@ button:hover:not(:disabled) {
     font-size: 0.85rem;
     color: var(--muted);
     text-align: center;
+}
+
+.connection-banner {
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fcd34d;
+    font-size: 0.95rem;
+}
+
+.connection-banner.ok {
+    background: #ecfdf3;
+    color: #166534;
+    border-color: #bbf7d0;
+}
+
+.connection-banner.error {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
 }
 
 .thanks-card {
