@@ -1,4 +1,4 @@
-# Montebello TourBot — Architecture & Walkthrough
+# Montebello TourBot
 
 This document provides a presentation-style overview of the Montebello TourBot web application, covering the stack, runtime architecture, data model, and key workflows.
 
@@ -9,7 +9,7 @@ This document provides a presentation-style overview of the Montebello TourBot w
 - **HTML/CSS/Vanilla JS** – lightweight front-end delivered by FastAPI; no bundler required.
 - **python-dotenv** – loads the `OPENAI_API_KEY` environment variable for the OpenAI client.
 
-## High-Level Architecture
+## Architecture
 - **Client UI**: `/` renders `templates/index.html`, which loads `static/chat.js` and `static/style.css` to present the chat experience and handle user input.
 - **FastAPI Layer**: `main.py` defines routes for chat initialization (`/chat/init`), chat turns (`/chat`), static files, and the thank-you page. It also configures CORS and mounts the static directory.
 - **Conversation Memory**: `ConversationThread` stores the recent message history and a compressed summary. The summary is updated via `state_manager.extract_state` to save tokens when calling the LLM.
@@ -54,8 +54,3 @@ This document provides a presentation-style overview of the Montebello TourBot w
 3. Start the server: `uvicorn app.main:app --reload --port 8000`.
 4. Open `http://localhost:8000` in your browser to start chatting with SAM.
 
-## Presenter Notes
-- Emphasize the **tool-call flow** (LLM proposes `register_user` → server validates → SQLite persistence) as the core value path.
-- Highlight **token efficiency**: compressed history summaries plus minimal JSON context keep latency/cost low.
-- Point out **resilience**: front-end retries `chat/init` and `chat` calls; server gracefully handles malformed tool arguments and missing tour IDs.
-- Mention **extensibility**: add new tools or context providers by extending `functions.py` and the message builder in `tourbot_agent.py`.
