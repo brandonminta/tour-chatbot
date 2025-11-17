@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse
 
 from pathlib import Path
 from .schemas import ChatRequest, ChatResponse, InitChatResponse
-from .database import init_db, list_active_tours, get_db_session
+from .database import init_db, list_active_tours, list_courses, get_db_session
 from .tourbot_agent import run_tourbot
 from .state_manager import extract_state
 
@@ -85,7 +85,7 @@ def startup_event():
 def _build_tour_suggestions(db) -> List[str]:
     tours = list_active_tours(db)
     return [
-        f"{i+1}. {t.date.strftime('%d/%m/%Y')} · Cupo inmediato · grupos de {t.capacity} familias"
+        f"{i+1}. {t.date.strftime('%d/%m/%Y')} · Cupo abierto (tour sin límite)"
         for i, t in enumerate(tours)
     ]
 
@@ -103,7 +103,7 @@ def _build_tour_context_text(db) -> str:
     ]
     for idx, t in enumerate(tours, 1):
         lines.append(
-            f"{idx}. {t.date.strftime('%d/%m/%Y')} · ID interno {t.id} · capacidad {t.capacity} familias"
+            f"{idx}. {t.date.strftime('%d/%m/%Y')} · ID interno {t.id} · tour sin cupo límite"
         )
 
     lines.append(
@@ -111,6 +111,32 @@ def _build_tour_context_text(db) -> str:
         "al ID interno correspondiente."
     )
 
+    return "\n".join(lines)
+
+
+def _build_course_capacity_text(db, max_items: int = 10) -> str:
+    courses = list_courses(db)
+    if not courses:
+        return (
+            "Capacidades por grado: aún no hay datos cargados. Si piden cupos, indica que"
+            " manejamos listas prioritarias y que el tour define su prioridad."
+        )
+
+    lines = [
+        "Capacidades de admisión por grado (no afectan al tour; el tour es ilimitado):"
+    ]
+
+    for course in courses[:max_items]:
+        status = "lista prioritaria" if course.capacity_available <= 0 else f"{course.capacity_available} cupos"
+        lines.append(f"- {course.name}: {status}")
+
+    if len(courses) > max_items:
+        lines.append("... hay más grados; responde de forma general si preguntan por otros.")
+
+    lines.append(
+        "Si un grado está en lista prioritaria, ofrece registrar para asignar prioridad y "
+        "contacto de seguimiento."
+    )
     return "\n".join(lines)
 
 
@@ -141,7 +167,7 @@ def init_chat(db=Depends(get_db_session)):
     # Mensaje inicial (generado por el agente)
     system_intro = (
         "Hola 👋 soy SAM, tu asistente de Admisiones del Colegio Montebello. "
-        "Estoy aquí para ayudarte a resolver dudas y, si deseas, reservar un cupo en nuestro Tour Informativo. "
+        "El tour informativo no tiene límite de cupos y sirve para conocer la escuela y tu prioridad de admisión. "
         "Para comenzar, ¿cómo te gustaría que te llame?"
     )
 
@@ -149,7 +175,9 @@ def init_chat(db=Depends(get_db_session)):
         system_intro += "\nEstas son las fechas disponibles de tour:" + "\n" + "\n".join(suggestions)
         system_intro += "\nElige el número o escribe la fecha que prefieras."
     else:
-        system_intro += "\nPor ahora no hay fechas visibles, pero puedo tomar tus datos para avisarte en cuanto se abra un cupo."
+        system_intro += (
+            "\nPor ahora no hay fechas visibles, pero puedo tomar tus datos para avisarte en cuanto se abra un cupo."
+        )
 
     # Guardar como respuesta inicial del bot
     conversations[conv_id].append("assistant", system_intro)
@@ -179,11 +207,13 @@ def chat(req: ChatRequest, db=Depends(get_db_session)):
 
     # Obtener respuesta del agente
     tour_options_text = _build_tour_context_text(db)
+    course_capacity_text = _build_course_capacity_text(db)
 
     raw_response = run_tourbot(
         conversation.history,
         conversation.summary,
         tour_options_text,
+        course_capacity_text,
     )
     output = raw_response.output[0]
 

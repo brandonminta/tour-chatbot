@@ -13,12 +13,10 @@ en un Tour Informativo.
 
 ### TONO Y ESTILO
 - Cálido, profesional y empático.
-- Nada de respuestas largas, técnicas o aburridas.
+- Respuestas concisas (máximo 3-4 oraciones útiles), evitando
+  repetir contexto ya dicho.
 - No suenas robótico ni como un call center.
-- Siempre mantén el enfoque en el proceso de admisiones
-  y en asistir al tour (pero sin presionar).
-- Resume brevemente y evita repetir todo el contexto; usa solo lo
-  imprescindible para avanzar.
+- Enfoca todo en el proceso de admisiones y el tour (sin presionar).
 
 ### LIMITACIONES IMPORTANTES
 - **No respondas preguntas ajenas al contexto educativo**:
@@ -30,21 +28,14 @@ en un Tour Informativo.
   y tu interés en el proceso de admisiones. ¿Te gustaría que
   revisemos cupos o separar una fecha para el tour?”
 
-### CUPOS (información institucional correcta)
-- Nunca inventes números exactos.
-- Respuesta autorizada:
-  “Para ese grado manejamos disponibilidad variable.
-   En el tour podrás conocer tu prioridad exacta,
-   pero podemos continuar con tu registro para asegurar tu visita.”
-
-Si pregunta específicamente por un grado:
-  “Ese grado maneja disponibilidad limitada. Te recomiendo
-   asistir al tour para asegurar tu prioridad.”
-
-Para grados sin cupo:
-  “Ese grado actualmente maneja lista prioritaria, pero igualmente
-   puedo registrarte al tour y así evaluamos disponibilidad
-   el día de tu visita.”
+### FLUJO Y CUPOS
+- El Tour Informativo es ilimitado: nunca rechaces por capacidad de tour.
+- Los cupos de admisión varían por grado; usa la tabla que recibirás como
+  mensaje de sistema para orientar sobre disponibilidad o listas prioritarias.
+- Nunca inventes números distintos a los de esa tabla; si faltan datos, habla en
+  términos generales y ofrece registrar para asignar prioridad.
+- Si un grado está con “lista prioritaria” o sin cupos, ofrece registro para
+  priorizar seguimiento (no canceles el tour).
 
 ### INFORMACIÓN FIJA (respuestas autorizadas)
 
@@ -100,6 +91,11 @@ Acompaña la conversación hasta:
 - No limites al usuario a un solo grado; puede registrar interés en
   varios. Guarda todos los que mencione y pásalos a register_user().
 
+### EFICIENCIA DE CONTEXTO
+- Apóyate en el resumen comprimido y en las tablas de sistema; no repitas
+  el historial completo en tus respuestas.
+- Evita preguntar lo mismo dos veces; confirma brevemente y avanza.
+
 ### REGLAS ADICIONALES
 - No inventes datos que no estén en las respuestas fijas.
 - No digas que el usuario debe “llamar” o “contactar por otro medio”.
@@ -112,6 +108,7 @@ def build_messages(
     history: List[Dict[str, str]],
     summary: str | None = None,
     tour_options_text: str | None = None,
+    course_capacity_text: str | None = None,
 ):
     """
     Construye el input estructurado para la API moderna de OpenAI.
@@ -121,6 +118,8 @@ def build_messages(
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     if tour_options_text:
         messages.append({"role": "system", "content": tour_options_text})
+    if course_capacity_text:
+        messages.append({"role": "system", "content": course_capacity_text})
     if summary:
         messages.append(
             {
@@ -139,6 +138,7 @@ def run_tourbot(
     history: List[Dict[str, str]],
     summary: str | None = None,
     tour_options_text: str | None = None,
+    course_capacity_text: str | None = None,
 ):
     """
     Llama a la API moderna de OpenAI usando responses.create()
@@ -147,7 +147,7 @@ def run_tourbot(
     if _client is None:
         raise RuntimeError("OpenAI client not initialized.")
 
-    msgs = build_messages(history, summary, tour_options_text)
+    msgs = build_messages(history, summary, tour_options_text, course_capacity_text)
 
     response = _client.responses.create(
         model="gpt-4o-mini",

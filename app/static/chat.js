@@ -103,12 +103,6 @@ const sendMessage = async () => {
             }, 700);
         }
 
-        if (data.registration_completed) {
-            setTimeout(() => {
-                window.location.href = '/gracias';
-            }, 700);
-        }
-
     } catch (error) {
         addMessage('Hubo un problema de conexión. Restableciendo la sesión…', 'bot');
         setConnectionBanner('Se perdió la conexión. Intentando reconectar…', 'warning');

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from typing import Dict, Any
-from .database import create_registration, list_active_tours
+from .database import create_registration, list_active_tours, reserve_course_interest
 
 # ---------- CORRECT FORMAT FOR NEW OPENAI API ---------- #
 REGISTER_USER_FUNCTION = {
@@ -54,6 +54,9 @@ def execute_register_user(db, args: Dict[str, Any]) -> Dict[str, Any]:
 
     grade_interest = ", ".join(grades_list) or "sin especificar"
 
+    # Marcar disponibilidad por grado y usarlo para reflejar lista de espera
+    course_status = reserve_course_interest(db, grades_list)
+
     # ejecutar registro real
     reg, wait_listed = create_registration(
         db,
@@ -63,7 +66,7 @@ def execute_register_user(db, args: Dict[str, Any]) -> Dict[str, Any]:
         phone=args["phone"],
         grade_interest=grade_interest,
         tour_date=tour,
-        force_wait_listed=False,
+        force_wait_listed=course_status.get("wait_listed", False),
     )
 
     return {
@@ -71,4 +74,5 @@ def execute_register_user(db, args: Dict[str, Any]) -> Dict[str, Any]:
         "registration_id": reg.id,
         "wait_listed": wait_listed,
         "tour_date": str(tour.date),
+        "course_status": course_status,
     }
