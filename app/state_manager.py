@@ -1,9 +1,5 @@
 # app/state_manager.py
 
-"""
-Lightweight semantic extractor for Montebello TourBot.
-Optimized for low token usage and stable JSON extraction.
-"""
 
 from __future__ import annotations
 from typing import List, Dict, Any
@@ -63,13 +59,12 @@ def extract_state(history: List[Dict[str, str]]) -> Dict[str, Any]:
     try:
         completion = _client.responses.create(
             model="gpt-4o-mini",
-            input=messages,                           # FIX: must be input=
-            response_format={"type": "json_object"},   # stable JSON
+            input=messages,                          
+            response_format={"type": "json_object"},  
             temperature=0,
             max_output_tokens=120,
         )
 
-        # stable JSON access
         return completion.output[0].content[0].json
 
     except Exception as e:
