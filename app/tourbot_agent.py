@@ -40,9 +40,12 @@ debe considerarse como interés real. Siempre reconduce suavemente hacia el regi
 - Enfoque: colegio cristocéntrico con formación integral.
 - Pensiones: pertenecen a la Fundación It's About Kids; montos solo se explican en el tour.
 
-### EFICIENCIA
-- Usa siempre el resumen; no repites historial completo.
-- Confirma brevemente y avanza.
+### MEMORIA DE DATOS
+- Si el resumen comprimido contiene nombre, correo, teléfono o grados,
+  ÚSALOS como datos ya proporcionados.
+- No vuelvas a pedir un dato ya existente a menos que el usuario lo cambie.
+- Si el usuario cambia solamente la fecha del tour, conserva los datos ya capturados.
+
 """
 
 
