@@ -1,8 +1,5 @@
 # app/openai_client.py
 
-"""
-Global OpenAI client for the TourBot.
-"""
 
 from __future__ import annotations
 import os
@@ -23,7 +20,7 @@ _client: OpenAI = OpenAI(api_key=_API_KEY) if _API_KEY else None
 # ---------------------------------------------------
 POLISH_PROMPT = "Reescribe el texto con tono cálido y profesional, sin agregar información nueva."
 
-DEBUG_POLISH = False   # toggle prints on/off
+DEBUG_POLISH = True   
 
 
 def polish_reply(draft: str) -> str:
