@@ -1,10 +1,7 @@
 # app/openai_client.py
 
 """
-OpenAI client singleton for all chatbot components.
-Provides:
-- _client  → shared OpenAI client
-- polish_reply() → optional text rewriting
+Global OpenAI client for the TourBot.
 """
 
 from __future__ import annotations
@@ -15,54 +12,44 @@ from openai import OpenAI
 
 load_dotenv()
 
-# ------------------------------------------
-# Create a global OpenAI client
-# ------------------------------------------
-
+# ---------------------------------------------------
+# GLOBAL CLIENT
+# ---------------------------------------------------
 _API_KEY = os.getenv("OPENAI_API_KEY")
 _client: OpenAI = OpenAI(api_key=_API_KEY) if _API_KEY else None
 
-# ------------------------------------------
-# Polisher prompt
-# ------------------------------------------
+# ---------------------------------------------------
+# POLISHER (minimal prompt to reduce token usage)
+# ---------------------------------------------------
+POLISH_PROMPT = "Reescribe el texto con tono cálido y profesional, sin agregar información nueva."
 
-SYSTEM_PROMPT = """
-Eres SAM, el asistente virtual de Admisiones del Montebello.
-Tu tarea es tomar mensajes base (en español) y devolverlos en un tono cálido,
-profesional e invitando a las familias a registrarse en el Tour de Admisiones.
-No inventes datos nuevos; solo mejora la redacción dada.
-"""
+DEBUG_POLISH = False   # toggle prints on/off
 
-# ------------------------------------------
-# Rewrite helper
-# ------------------------------------------
 
 def polish_reply(draft: str) -> str:
-    """Rewrite a message in SAM’s tone."""
+    """Rewrite a message in a warm, concise tone."""
     if not draft.strip() or not _client:
         return draft
 
     try:
         completion = _client.responses.create(
             model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": (
-                        "Reescribe el siguiente mensaje manteniendo la intención original:\n" + draft
-                    ),
-                },
+            input=[
+                {"role": "system", "content": POLISH_PROMPT},
+                {"role": "user", "content": draft}
             ],
-            temperature=0.6,
-            max_output_tokens=350,
+            temperature=0.4,
+            max_output_tokens=80
         )
-        usage = completion.usage
-        print("\n[polish_reply] TOKENS:")
-        print(f"  Input tokens:   {usage.input_tokens}")
-        print(f"  Output tokens:  {usage.output_tokens}")
-        print(f"  Total tokens:   {usage.total_tokens}")
-        print("-" * 40)
+
+        if DEBUG_POLISH:
+            usage = completion.usage
+            print("\n[polish_reply] TOKENS:")
+            print(f"  Input tokens:   {usage.input_tokens}")
+            print(f"  Output tokens:  {usage.output_tokens}")
+            print(f"  Total tokens:   {usage.total_tokens}")
+            print("-" * 40)
+
         return completion.output_text or draft
 
     except Exception:
