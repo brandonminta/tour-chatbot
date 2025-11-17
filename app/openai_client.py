@@ -42,9 +42,9 @@ def polish_reply(draft: str) -> str:
         if DEBUG_POLISH:
             usage = completion.usage
             print("\n[polish_reply] TOKENS:")
-            print(f"  Input tokens:   {usage.input_tokens}")
-            print(f"  Output tokens:  {usage.output_tokens}")
-            print(f"  Total tokens:   {usage.total_tokens}")
+            print(f"  Input tokens p:   {usage.input_tokens}")
+            print(f"  Output tokens p:  {usage.output_tokens}")
+            print(f"  Total tokens p:   {usage.total_tokens}")
             print("-" * 40)
 
         return completion.output_text or draft
