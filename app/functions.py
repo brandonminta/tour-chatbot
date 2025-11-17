@@ -8,7 +8,7 @@ from .database import create_registration, list_active_tours, reserve_course_int
 REGISTER_USER_FUNCTION = {
     "type": "function",
     "name": "register_user",
-    "description": "Registra a una familia para un tour informativo del Colegio Montebello.",
+    "description": "Registra a una familia para un tour informativo de Montebello.",
     "parameters": {
         "type": "object",
         "properties": {
